@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Voyage Trend Detective</title>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--tx:#12202f;--mu:#5b6b7c;--ac:#0b6bcb;--ok:#1a9b5a;--wa:#d98a00;--bad:#d83a3a;--bd:#dbe3ec;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1420;--card:#13202f;--tx:#e6eef7;--mu:#94a5b8;--ac:#4aa3ff;--ok:#3ccf86;--wa:#f0b429;--bad:#ff6b6b;--bd:#233347}}
+:root[data-theme="dark"]{--bg:#0b1420;--card:#13202f;--tx:#e6eef7;--mu:#94a5b8;--ac:#4aa3ff;--ok:#3ccf86;--wa:#f0b429;--bad:#ff6b6b;--bd:#233347}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:720px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:0}h2{font-size:16px;margin:0 0 8px}
+.sub{color:var(--mu);font-size:13px;margin:2px 0 14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:14px}
+.note{font-size:12px;color:var(--mu);margin-top:8px}
+select,button{font:inherit;padding:8px 12px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx)}
+button.p{background:var(--ac);color:#fff;border-color:var(--ac)}button.d{background:var(--bad);color:#fff;border-color:var(--bad)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.k{border:1px solid var(--bd);border-radius:10px;padding:8px}.k b{display:block;font-size:18px}.k span{font-size:11px;color:var(--mu)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.s{border:1px solid var(--bd);border-radius:10px;padding:10px}.s span{font-size:12px;color:var(--mu)}.s b{display:block;font-size:22px}
+.ok{border-color:var(--ok)}.wa{border-color:var(--wa)}.cr{border-color:var(--bad)}
+svg{width:100%;height:auto;display:block}
+#log{list-style:none;padding:0;margin:8px 0 0;font-size:13px}#log li{padding:4px 0;border-top:1px solid var(--bd)}
+.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;color:#fff}
+</style></head><body><main>
+<h1>🚢 Voyage Trend Detective</h1>
+<p class="sub">NASA Space Apps 2026 · Earth trends for ship routes + onboard electrical health</p>
+
+<section class="card">
+<h2>1 · Route wind trends (NASA POWER)</h2>
+<div class="row"><select id="route"></select></div>
+<div class="kpis"><div class="k"><b id="k1">–</b><span>Trend / decade</span></div><div class="k"><b id="k2">–</b><span>Anomalies (4 yrs)</span></div><div class="k"><b id="k3">–</b><span>Next 3-month risk</span></div></div>
+<svg id="chart" viewBox="0 0 340 170" role="img" aria-label="Wind speed chart"></svg>
+<p class="note">10 m wind speed (m/s), a sea-state proxy, last 48 months of the real NASA POWER record (2016–2025). Red dots = unusual months (over 2 standard deviations from that month’s normal). Risk uses each month’s 10-year average.</p>
+</section>
+
+<section class="card">
+<h2>2 · Ship health node (simulated ESP32)</h2>
+<div class="grid" id="sens"></div>
+<div class="row" style="margin-top:10px"><button class="d" id="fault">Inject fault</button><button id="reset">Reset</button><span id="stat" class="tag" style="background:var(--ok)">Normal</span></div>
+<ul id="log"></ul>
+<p class="note">Mimics engine-room and switchboard monitoring. The real ESP32 sends the same four readings over Wi‑Fi.</p>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const MN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const R={"Kochi → Dubai":[3.6,3.54,3.31,3.62,4.64,6.19,7.0,6.56,5.18,3.53,3.51,4.08,3.73,4.04,3.33,4.02,4.34,6.3,6.85,5.8,4.17,3.2,3.92,4.5,3.54,3.23,3.31,3.26,4.27,6.67,7.37,6.96,4.15,3.01,3.79,3.75,3.89,4.0,3.86,3.64,3.98,5.54,6.74,6.29,4.77,4.12,3.88,4.11,4.05,3.63,3.46,3.12,4.03,5.45,5.94,6.6,4.24,3.83,4.12,4.17,4.2,3.25,3.41,3.09,4.16,6.16,7.2,5.9,5.01,3.63,4.29,3.75,4.06,3.44,3.48,2.94,4.9,5.2,6.97,6.25,4.45,3.11,3.55,4.2,4.46,3.65,3.38,3.23,3.62,5.72,6.76,5.46,4.4,2.75,3.38,3.98,3.65,3.96,3.66,3.28,4.3,5.56,7.38,6.18,4.83,3.33,3.61,4.5,4.38,3.56,3.55,3.33,5.17,6.55,7.29,6.35,5.02,4.84,3.87,3.98],"Mumbai → Singapore":[4.21,4.6,3.77,3.19,3.98,5.29,5.24,5.7,4.82,3.86,3.18,3.72,4.09,4.3,3.23,3.23,4.13,4.88,5.79,4.99,3.9,3.22,3.18,3.85,3.41,4.14,3.54,2.98,3.27,5.28,6.29,6.18,3.86,2.9,3.03,3.76,4.54,4.38,3.6,3.11,3.54,4.88,5.11,5.73,4.34,2.67,3.23,4.46,4.64,4.75,3.79,3.27,4.11,4.5,4.42,5.11,4.05,4.02,3.44,3.98,4.48,4.35,3.73,2.89,3.77,4.48,5.54,4.51,4.57,3.54,3.03,3.92,3.97,4.0,3.51,2.74,4.47,4.39,5.59,5.22,4.19,3.78,3.23,4.14,4.45,4.45,3.88,3.12,3.79,5.04,5.9,4.87,4.5,2.88,2.78,3.92,4.49,4.74,3.99,3.32,3.86,4.25,5.79,4.58,4.78,3.11,3.38,3.77,4.71,4.49,4.07,3.1,3.99,5.43,5.98,4.8,4.43,3.65,3.38,3.99],"Chennai → Colombo":[3.93,3.46,3.22,3.53,4.83,5.59,5.16,5.38,5.12,3.86,3.72,4.17,4.33,3.68,3.2,3.86,4.65,5.72,5.03,4.93,4.5,4.0,4.12,4.02,3.95,3.57,3.12,3.25,4.24,5.85,5.7,5.48,4.05,3.3,3.71,4.14,4.38,3.79,3.38,3.32,5.04,5.84,5.26,5.85,4.58,2.93,3.19,4.01,3.74,4.05,3.19,3.24,4.31,5.17,4.59,4.88,5.02,4.33,3.74,4.38,3.75,4.03,2.87,3.25,4.66,5.21,5.44,5.05,4.86,3.84,4.2,3.87,3.86,3.72,3.66,3.11,5.53,4.92,4.83,5.06,4.64,3.97,3.71,4.6,4.47,4.0,3.36,3.0,4.18,5.41,5.51,4.63,5.41,3.34,2.99,4.6,4.01,4.17,3.22,3.15,4.46,5.52,5.61,4.67,4.93,3.37,4.52,4.14,4.64,3.64,3.02,3.24,4.71,5.47,5.55,4.76,4.65,3.31,4.37,4.5]};
+const N=120,START=0; // Jan 2016 → Dec 2025 (NASA POWER)
+function gen(c){return{v:c,m:c.map((_,i)=>(START+i)%12)}}
+function analyze(c){const{v,m}=gen(c);const mean=Array(12).fill(0),n=Array(12).fill(0),sd=Array(12).fill(0);
+v.forEach((x,i)=>{mean[m[i]]+=x;n[m[i]]++});mean.forEach((_,k)=>mean[k]/=n[k]);
+v.forEach((x,i)=>sd[m[i]]+=(x-mean[m[i]])**2);sd.forEach((_,k)=>sd[k]=Math.sqrt(sd[k]/n[k]));
+const z=v.map((x,i)=>(x-mean[m[i]])/sd[m[i]]);const d=v.map((x,i)=>x-mean[m[i]]);
+const mx=(N-1)/2,my=d.reduce((a,b)=>a+b)/N;let nu=0,de=0;d.forEach((y,i)=>{nu+=(i-mx)*(y-my);de+=(i-mx)**2});
+const slope=nu/de*120;const nxt=[1,2,3].map(k=>mean[(new Date().getMonth()+k)%12]).reduce((a,b)=>a+b)/3;
+return{v,m,z,slope,nxt}}
+function label(i){const mo=(START+i)%12,y=2016+Math.floor((START+i)/12);return MN[mo]+" "+y}
+function draw(){const a=analyze(R[$("route").value]);const L=48,v=a.v.slice(-L),z=a.z.slice(-L);
+const lo=Math.min(...v)-.2,hi=Math.max(...v)+.2,X=i=>30+i*(300/(L-1)),Y=y=>150-(y-lo)/(hi-lo)*130;
+let s='<g stroke="var(--bd)" stroke-width="1">';for(let k=0;k<4;k++){const y=20+k*43;s+=`<line x1="30" x2="330" y1="${y}" y2="${y}"/>`}s+='</g>';
+s+=`<polyline fill="none" stroke="var(--ac)" stroke-width="2" points="${v.map((y,i)=>X(i)+","+Y(y)).join(" ")}"/>`;
+z.forEach((q,i)=>{if(Math.abs(q)>2)s+=`<circle cx="${X(i)}" cy="${Y(v[i])}" r="4.5" fill="var(--bad)"/>`});
+s+=`<text x="2" y="24" font-size="10" fill="var(--mu)">${hi.toFixed(1)}</text><text x="2" y="150" font-size="10" fill="var(--mu)">${lo.toFixed(1)}</text>`;
+s+=`<text x="30" y="166" font-size="10" fill="var(--mu)">${label(N-L)}</text><text x="330" y="166" font-size="10" text-anchor="end" fill="var(--mu)">${label(N-1)}</text>`;
+$("chart").innerHTML=s;
+$("k1").textContent=(a.slope>=0?"+":"")+a.slope.toFixed(2)+" m/s";$("k2").textContent=z.filter(q=>Math.abs(q)>2).length;
+const r=a.nxt<4.2?["Low","var(--ok)"]:a.nxt<5.2?["Moderate","var(--wa)"]:["High","var(--bad)"];
+$("k3").textContent=r[0];$("k3").style.color=r[1]}
+Object.keys(R).forEach(k=>$("route").add(new Option(k,k)));$("route").onchange=draw;draw();
+
+const S=[{k:"Engine temp",u:"°C",b:78,w:95,c:105,hi:1,d:1},{k:"Vibration",u:"mm/s",b:2.1,w:4.5,c:7,hi:1,d:2},{k:"Bus voltage",u:"V",b:440,w:420,c:400,hi:0,d:0},{k:"Load current",u:"A",b:120,w:160,c:185,hi:1,d:0}];
+S.forEach(s=>s.x=s.b);let fault=false;const last={};
+$("sens").innerHTML=S.map((s,i)=>`<div class="s ok" id="s${i}"><span>${s.k}</span><b></b></div>`).join("");
+function log(t,c){const li=document.createElement("li");li.innerHTML=`<span style="color:${c}">●</span> ${new Date().toLocaleTimeString()} — ${t}`;const u=$("log");u.prepend(li);while(u.children.length>6)u.lastChild.remove()}
+function tick(){let worst=0;S.forEach((s,i)=>{const tgt=fault?(s.hi?s.c+(s.b<10?1.5:8):s.c-12):s.b;s.x+=(tgt-s.x)*(fault?.06:.2)+(Math.random()-.5)*s.b*.01;
+const lvl=s.hi?(s.x>=s.c?2:s.x>=s.w?1:0):(s.x<=s.c?2:s.x<=s.w?1:0);worst=Math.max(worst,lvl);
+const el=$("s"+i);el.className="s "+["ok","wa","cr"][lvl];el.querySelector("b").textContent=s.x.toFixed(s.b<10?1:0)+" "+s.u;
+if(lvl>(last[i]||0))log(`${s.k} ${lvl==2?"CRITICAL":"warning"}: ${s.x.toFixed(1)} ${s.u}`,lvl==2?"var(--bad)":"var(--wa)");last[i]=lvl});
+const st=$("stat");st.textContent=["Normal","Warning","Critical"][worst];st.style.background=["var(--ok)","var(--wa)","var(--bad)"][worst]}
+$("fault").onclick=()=>{fault=true;log("Fault injected (overheating + bus sag)","var(--ac)")};
+$("reset").onclick=()=>{fault=false;log("Reset to normal","var(--ok)")};
+setInterval(tick,1000);tick();
+</script></body></html>
