@@ -27,4 +27,4 @@ official challenge release.
 Per-month climatology → z-score of each month → linear fit on deseasonalised values.
 
 ## Author
-<your name>, ECE student. Built solo for NASA Space Apps 2026.
+Jawahar.M, ECE student. Built solo for NASA Space Apps 2026.
